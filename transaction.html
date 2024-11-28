@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction - Library Management System</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header>
+        <h1>Transaction History</h1>
+        <button id="logout-btn">Logout</button>
+    </header>
+
+    <main>
+        <section>
+            <h2>Transaction List</h2>
+            <div id="transactions-list"></div>
+        </section>
+    </main>
+
+    <script>
+        // Get user from localStorage
+        const user = JSON.parse(localStorage.getItem("user"));
+        const logoutButton = document.getElementById("logout-btn");
+
+        if (!user) {
+            window.location.href = "/user-login.html"; // Redirect to login if not logged in
+        }
+
+        // Logout functionality
+        logoutButton.addEventListener("click", () => {
+            localStorage.removeItem("user");  // Remove user data from localStorage
+            window.location.href = "/user-login.html";  // Redirect to login page
+        });
+
+        // Fetch transactions for the logged-in user
+        async function fetchTransactions() {
+            try {
+                const response = await fetch("/api/transactions", {
+                    headers: {
+                        "Authorization": `Bearer ${user.token}`, // Send token to authenticate
+                    },
+                });
+
+                const transactions = await response.json();
+                const transactionsList = document.getElementById("transactions-list");
+
+                if (transactions.length === 0) {
+                    transactionsList.innerHTML = "<p>No transactions found.</p>";
+                } else {
+                    transactions.forEach(transaction => {
+                        const transactionDiv = document.createElement("div");
+                        transactionDiv.classList.add("transaction");
+
+                        const bookTitle = document.createElement("h3");
+                        bookTitle.textContent = `Book Title: ${transaction.book.title}`;
+
+                        const borrowDate = document.createElement("p");
+                        borrowDate.textContent = `Borrowed On: ${new Date(transaction.borrowDate).toLocaleDateString()}`;
+
+                        const returnDate = document.createElement("p");
+                        returnDate.textContent = transaction.returnDate ? `Returned On: ${new Date(transaction.returnDate).toLocaleDateString()}` : "Not Returned Yet";
+
+                        const returnButton = document.createElement("button");
+                        returnButton.textContent = "Return Book";
+                        returnButton.disabled = transaction.returnDate !== null; // Disable if already returned
+                        returnButton.addEventListener("click", () => returnBook(transaction._id));
+
+                        transactionDiv.appendChild(bookTitle);
+                        transactionDiv.appendChild(borrowDate);
+                        transactionDiv.appendChild(returnDate);
+                        transactionDiv.appendChild(returnButton);
+
+                        transactionsList.appendChild(transactionDiv);
+                    });
+                }
+            } catch (error) {
+                console.error("Error fetching transactions:", error);
+                alert("Error fetching transactions.");
+            }
+        }
+
+        // Handle returning a book
+        async function returnBook(transactionId) {
+            try {
+                const response = await fetch(`/api/transactions/return/${transactionId}`, {
+                    method: "PUT",
+                    headers: {
+                        "Authorization": `Bearer ${user.token}`,
+                        "Content-Type": "application/json",
+                    },
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    alert("Book returned successfully!");
+                    fetchTransactions(); // Refresh the transactions list
+                } else {
+                    alert(result.message);
+                }
+            } catch (error) {
+                alert("Error returning the book.");
+            }
+        }
+
+        // Load the transactions for the logged-in user
+        fetchTransactions();
+    </script>
+</body>
+</html>
